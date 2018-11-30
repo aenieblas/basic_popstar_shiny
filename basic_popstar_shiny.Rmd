@@ -1,0 +1,544 @@
+---
+title: "Basic Tagging Plots"
+resource_files:
+- Rscripts/helper_functions_popstar_basic.R
+- data/46301-4-GPE3.nc
+- data/run_spec_popstar.csv
+runtime: shiny
+output: flexdashboard::flex_dashboard
+---
+
+```{r global, include=FALSE}
+
+options(shiny.sanitize.errors = FALSE)
+
+## AE: change options to include which env variables to plot
+
+## ---------------------------------- SET UP -------------------------------- ##
+# dirMain='/home/anne.elise.nieblas/popstar/'
+dirMain=getwd()
+# dirMain='/home/ae/Documents/POPSTAR_NETCDF/popstar_shiny/'
+# set directories/file names
+# tag_data_dir <- '/home/ae/Documents/POPSTAR_NETCDF/46301gpe4/'
+dirData=paste0(dirMain,'/data/')
+
+
+# dirMain <-(paste(home_dir,SS3_dir,"/SS3_Diagnostic_Plots",sep=""))
+dirRScripts <- paste(dirMain,"/Rscripts/",sep='')
+
+tag_name      <- '46301-4-GPE3'
+# parameter and run/seed info
+# VRE netcdf folder
+# dirData<-'https://goo.gl/oc4SNH/'
+# dirWS <- "https://goo.gl/mo1Tz7"
+dirWS    <- paste(dirMain, "/data/", sep="")
+# dirData    <- paste(dirMain, "/data/", sep="")
+# dirData <- "http://mdst-macroes.ird.fr:8080/thredds/dodsC/BlueBridge/IOTC/"
+#######################################################
+
+########### SOURCE LIBRARIES AND FUNCTIONS ############
+# library(pacman)
+library(shiny)
+library(plyr)
+library(reshape2)
+library(ggplot2)
+library(ncdf4)
+library(flexdashboard)
+library(RColorBrewer)
+library(maps)
+##<!-- p_load('shiny','plyr','reshape2','ggplot2','ncdf4','flexdashboard','RColorBrewer')#'plotly', -->
+monde        <- map_data("world")
+colrs        <- rev(colorRampPalette(brewer.pal(8, 'Spectral'))(100))
+
+# run_parameters <- read.csv(dirWS)
+run_parameters <- read.csv(paste(dirWS, "run_spec_popstar.csv", sep=""))
+r_seed <- 1
+#######################################################
+
+```
+
+
+```{r, include=FALSE}
+source(paste(dirRScripts,'helper_functions_popstar_basic.R',sep=''))
+## extract POINTS data from .nc files - lon,lat,depth,in situ temperature, sst...
+POINTS_plot <- reactive({read_POINTS_data(paste(input$Model),input$Run, dir_save=paste(dirData,sep=''))})
+
+## extract POLY2 data from .nc files - lon,lat,enriched sst
+POLY1_plot <- reactive({read_POLY1_data(paste(input$Model),input$Run, dir_save=paste(dirData,sep=''))})
+
+## extract POLY2 data from .nc files - lon,lat,enriched sst
+POLY2_plot <- reactive({read_POLY2_data(paste(input$Model),input$Run, dir_save=paste(dirData,sep=''))})
+
+## extract POLY3 data from .nc files - lon,lat,enriched sst
+POLY3_plot <- reactive({read_POLY3_data(paste(input$Model),input$Run, dir_save=paste(dirData,sep=''))})
+
+```
+
+
+Select input {.sidebar}
+===================================== 
+
+```{r}
+selectInput(inputId='Model',
+            label='Select tags currently available',
+            choices=as.character(unique(run_parameters$Model)),
+            selected='46301-4-GPE3',
+            multiple = FALSE)
+# output$selectUI <- renderUI({
+#   selectInput("Run",
+#               label="Choose the variable to plot",
+#               choices =  as.character(run_parameters$Run[run_parameters$Model==input$Model]),
+#               # selected=as.character(run_parameters$Run[1]),
+#               selected=as.character(run_parameters$Run[run_parameters$Model==input$Model][1]),
+#               multiple=FALSE)
+# })
+htmlOutput("selectUI")
+```
+
+
+Maximum likelihood positions
+=====================================
+
+Column 1
+--------------------------------------------------
+
+### Coordinates 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POINTS2plot <- POINTS_plot()
+  ################# CPUE STANDARDIZED RESIDUALS ###################
+  gg <- ggplot()
+  gg <- gg + geom_map(data=monde, map=monde, 
+                      aes(map_id=region),
+                      fill='grey', color="grey")
+  # gg <- gg +  geom_point(data=Points_data, aes(x=longitude, y=latitude, color=sst),
+  gg <- gg + geom_point(data=POINTS2plot, aes(x=longitude, y=latitude, color=sst),
+                        alpha=1, na.rm=TRUE)+geom_path(data=POINTS2plot, aes(x=longitude, y=latitude, color=sst))+
+    scale_color_gradientn(colors=colrs)
+  gg
+  # ggplotly(gg)
+  #################################################################
+})
+```
+
+Column 2
+--------------------------------------------------
+
+### Depth profile 
+```{r}
+# renderPlotly({
+renderPlot({
+  POINTS2plot <- POINTS_plot()
+  ################# CPUE STANDARDIZED RESIDUALS ###################
+  # p <- ggplot(POINTS2plot, aes(x=time, y=depth, colour=sst))
+  p <- ggplot(POINTS2plot, aes(x=time, y=depth))
+  # p <- ggplot(Points_data, aes(x=time, y=depth,color=sst))
+  p <-  p+geom_line(size=1.5)#+
+    # scale_color_gradientn(colors=colrs)
+  # facet_wrap(~Fleet,ncol=2)+geom_abline(intercept = -2,slope=0, col="blue",linetype=2)+
+  # geom_abline(intercept = 2,slope=0, col="blue",linetype=2)+
+  # geom_abline(intercept = 0,slope=0, col="blue",linetype=2)#+ggtitle("Standardized CPUE residuals")
+  # ggplotly(p)
+  p
+  #################################################################
+})
+```
+
+### In situ temperature 
+```{r}
+# renderPlotly({
+renderPlot({
+  POINTS2plot <- POINTS_plot()
+  ################# CPUE STANDARDIZED RESIDUALS ###################
+  # p <- ggplot(POINTS2plot, aes(x=time, y=depth, colour=sst))
+  p <- ggplot(POINTS2plot, aes(x=time, y=in_situ_temp))
+  # p <- ggplot(Points_data, aes(x=time, y=depth,color=sst))
+  p <-  p+geom_line(size=1.5)#+
+    # scale_color_gradientn(colors=colrs)
+  # facet_wrap(~Fleet,ncol=2)+geom_abline(intercept = -2,slope=0, col="blue",linetype=2)+
+  # geom_abline(intercept = 2,slope=0, col="blue",linetype=2)+
+  # geom_abline(intercept = 0,slope=0, col="blue",linetype=2)#+ggtitle("Standardized CPUE residuals")
+  # ggplotly(p)
+  p
+  #################################################################
+})
+```
+
+
+95% uncertainty
+===================================== 
+Enriched uncertainty polygons - SST (°C)
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### mean 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY12plot <- POLY1_plot()
+  ############# CPUE FIT: OBSERVED V PREDICTED ###########
+  # p <- ggplot(na.exclude(POLY12plot), aes(x=Year, y=Obs))
+  # p <- p+geom_point(size=0.7,col='black')+geom_line(col='black')+geom_line(aes(y=Exp, colour=Model_run))+
+  #   facet_wrap(~Fleet,ncol=2)#+scales='free_y'+ggtitle("CPUE fit: Observed v Predicted")#as.numeric(as.character(input$Run)))
+  # ggplotly(p)
+  ########################################################
+  
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY12plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=mean_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    # facet_wrap(~time)+
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  # ggplotly(g)
+  g
+  ########################################################
+})
+
+
+
+```
+
+
+### sd 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY12plot <- POLY1_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY12plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=sd_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs)
+  g
+  ########################################################
+})
+```
+
+### min 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY12plot <- POLY1_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY12plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=min_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+
+### 25% quantile
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY12plot <- POLY1_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY12plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=q25_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+### 75% quantile 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY12plot <- POLY1_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY12plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=q75_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+### max
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY12plot <- POLY1_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY12plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=max_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+
+75% uncertainty
+===================================== 
+Enriched uncertainty polygons - SST (°C)
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### mean 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY22plot <- POLY2_plot()
+  ############# CPUE FIT: OBSERVED V PREDICTED ###########
+  # p <- ggplot(na.exclude(POLY22plot), aes(x=Year, y=Obs))
+  # p <- p+geom_point(size=0.7,col='black')+geom_line(col='black')+geom_line(aes(y=Exp, colour=Model_run))+
+  #   facet_wrap(~Fleet,ncol=2)#+scales='free_y'+ggtitle("CPUE fit: Observed v Predicted")#as.numeric(as.character(input$Run)))
+  # ggplotly(p)
+  ########################################################
+  
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY22plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=mean_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    # facet_wrap(~time)+
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  # ggplotly(g)
+  g
+  ########################################################
+})
+
+
+
+```
+
+
+### sd 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY22plot <- POLY2_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY22plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=sd_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs)
+  g
+  ########################################################
+})
+```
+
+### min 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY22plot <- POLY2_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY22plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=min_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+
+### 25% quantile
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY22plot <- POLY2_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY22plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=q25_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+### 75% quantile 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY22plot <- POLY2_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY22plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=q75_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+### max
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY22plot <- POLY2_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY22plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=max_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+
+
+
+
+50% uncertainty
+===================================== 
+Enriched uncertainty polygons - SST (°C)
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### mean 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY32plot <- POLY3_plot()
+  ############# CPUE FIT: OBSERVED V PREDICTED ###########
+  # p <- ggplot(na.exclude(POLY32plot), aes(x=Year, y=Obs))
+  # p <- p+geom_point(size=0.7,col='black')+geom_line(col='black')+geom_line(aes(y=Exp, colour=Model_run))+
+  #   facet_wrap(~Fleet,ncol=2)#+scales='free_y'+ggtitle("CPUE fit: Observed v Predicted")#as.numeric(as.character(input$Run)))
+  # ggplotly(p)
+  ########################################################
+  
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY32plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=mean_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    # facet_wrap(~time)+
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  # ggplotly(g)
+  g
+  ########################################################
+})
+
+
+
+```
+
+
+### sd 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY32plot <- POLY3_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY32plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=sd_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs)
+  g
+  ########################################################
+})
+```
+
+### min 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY32plot <- POLY3_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY32plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=min_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+
+### 25% quantile
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY32plot <- POLY3_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY32plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=q25_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+### 75% quantile 
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY32plot <- POLY3_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY32plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=q75_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+### max
+
+```{r}
+# renderPlotly({
+renderPlot({
+  POLY32plot <- POLY3_plot()
+  ############# UNCERTAINTY POLYGON 1: MEAN SST ###########
+  g <- ggplot(data = na.exclude(POLY32plot))
+  # g <- ggplot(data = na.exclude(Poly1_data))
+  g <- g + geom_polygon(mapping=aes(x=longitude,y=latitude,fill=max_sst,group=time))+# when facet_wrap is turned off, change to group=group, when off: group=pid
+    geom_map(data=monde, map=monde, aes(map_id=region), fill="grey", color="grey", size=0.1) +
+    scale_fill_gradientn(colours=colrs,limits=c(13, 29))
+  g
+  ########################################################
+})
+```
+
+
